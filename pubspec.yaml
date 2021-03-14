@@ -1,6 +1,6 @@
 name: automatic_animated_list
 description: AnimatedList which computes the item deltas each time the underliying list gets updated, and animates the list tiles automatically.
-version: 0.0.1
+version: 1.0.0
 author: Guy Kaplan (gkpln3)
 homepage: https://github.com/gkpln3
 
