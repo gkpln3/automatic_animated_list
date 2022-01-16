@@ -1,9 +1,11 @@
 import 'package:flutter/widgets.dart';
+import 'package:diffutil_dart/diffutil.dart';
+
 
 const Duration _kDuration = Duration(milliseconds: 300);
 
 class AutomaticAnimatedList<T> extends StatefulWidget {
-  AutomaticAnimatedList({
+  const AutomaticAnimatedList({
     Key? key,
     required this.items,
     required this.itemBuilder,
@@ -102,81 +104,47 @@ class AutomaticAnimatedList<T> extends StatefulWidget {
 }
 
 class _AutomaticAnimatedListState<T> extends State<AutomaticAnimatedList<T>> {
-  GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
 
   @override
   void didUpdateWidget(AutomaticAnimatedList<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    List<Key> oldKeys =
-        oldWidget.items.map((e) => oldWidget.keyingFunction(e)).toList();
-    List<Key> newKeys =
-        this.widget.items.map((e) => this.widget.keyingFunction(e)).toList();
+    final List<Key> oldKeys = oldWidget.items.map((T e) => oldWidget.keyingFunction(e)).toList();
+    final List<Key> newKeys = widget.items.map((T e) => widget.keyingFunction(e)).toList();
 
-    // This variable holds the current offset between the lists. it thrives to make
-    int offset = 0;
-    for (int i = 0; i < oldKeys.length; i++) {
-      // We reached the end if the new list, this means all other old items here were removed.
-      if (newKeys.length < i + offset + 1) {
-        // This item is not present in the new list. which means it was removed.
+    for (final DataDiffUpdate<Key> update in calculateListDiff<Key>(
+      oldKeys,
+      newKeys,
+      detectMoves: false,
+    ).getUpdatesWithData()) {
+      if (update is DataInsert<Key>) {
+        _listKey.currentState!.insertItem(
+          update.position,
+          duration: widget.insertDuration,
+        );
+      } else if (update is DataRemove<Key>) {
         _listKey.currentState!.removeItem(
-            i,
-            (context, animation) =>
-                oldWidget.itemBuilder(context, oldWidget.items[i], animation),
-            duration: this.widget.removeDuration);
-        offset--;
-        continue;
+          update.position,
+          (BuildContext context, Animation<double> animation) =>
+            oldWidget.itemBuilder(context, oldWidget.items[update.position], animation),
+          duration: widget.removeDuration,
+        );
       }
-
-      // Check if the current item is the same item.
-      if (oldKeys[i] != newKeys[i + offset]) {
-        // The current items differ, check if this item was removed or just moved index.
-        int tempOffset = newKeys.indexOf(oldKeys[i]);
-        if (tempOffset != -1) {
-          // This item exists in the new list!, this means all items between them are new ones.
-          for (int j = i; j < tempOffset; j++) {
-            _listKey.currentState!
-                .insertItem(j, duration: this.widget.insertDuration);
-            offset++;
-          }
-        } else {
-          // This item is not present in the new list. which means it was removed.
-          _listKey.currentState!.removeItem(
-              i,
-              (context, animation) =>
-                  oldWidget.itemBuilder(context, oldWidget.items[i], animation),
-              duration: this.widget.removeDuration);
-          offset--;
-        }
-      }
-    }
-
-    // All the rest.
-    for (int i = oldKeys.length; i < newKeys.length - offset; i++) {
-      _listKey.currentState!
-          .insertItem(i, duration: this.widget.insertDuration);
     }
   }
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedList(
-      key: _listKey,
-      scrollDirection: this.widget.scrollDirection,
-      reverse: this.widget.reverse,
-      controller: this.widget.controller,
-      primary: this.widget.primary,
-      physics: this.widget.physics,
-      shrinkWrap: this.widget.shrinkWrap,
-      padding: this.widget.padding,
-      initialItemCount: this.widget.items.length,
-      itemBuilder: (BuildContext context, int index, Animation animation) =>
-          this.widget.itemBuilder(context, this.widget.items[index],
-              animation as Animation<double>),
-    );
-  }
+  Widget build(BuildContext context) => AnimatedList(
+    key: _listKey,
+    scrollDirection: widget.scrollDirection,
+    reverse: widget.reverse,
+    controller: widget.controller,
+    primary: widget.primary,
+    physics: widget.physics,
+    shrinkWrap: widget.shrinkWrap,
+    padding: widget.padding,
+    initialItemCount: widget.items.length,
+    itemBuilder: (BuildContext context, int index, Animation<double> animation) =>
+      widget.itemBuilder(context, widget.items[index], animation),
+  );
 }
